@@ -2,7 +2,9 @@ const express = require("express");
 const app = express();
 const port = process.env.PORT || 3000;
 require("dotenv").config();
-const encrypt = require("mongoose-encryption");
+const validator = require("validator");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -19,8 +21,14 @@ const userSchema = mongoose.Schema(
   {
     email: {
       type: String,
-      required: true,
+      required: [ true, "Email is required" ],
       unique: true,
+      trim: true,
+      lowercase: true, //to ensure email consistency
+      validate:{
+        validator: validator.isEmail,
+        message: "Please enter a valid email"
+      }
     },
     password: {
       type: String,
@@ -32,9 +40,6 @@ const userSchema = mongoose.Schema(
   }
 );
 
-// Mongoose encryption
-const secret = process.env.SOMETHING_YOU_WONT_GUESS_HEHE;
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] }); //using the encrypted field you can specify a field to encrypt
 
 const User = mongoose.model("User", userSchema);
 
@@ -50,25 +55,22 @@ app
 
   .post(async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { email, password } = req.body;
 
-      // const newUser = new User({
-      //     email: username,
-      //     password: password
-      // })
-
-      // newUser.save()
+      //secure hashing
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       const newUser = await User.create({
-        email: username,
-        password: password,
+        email: email,
+        password: hashedPassword,
       });
 
-      !newUser
-        ? res.status(400).send("no new user was made")
-        : res.render("secrets");
+        res.render("secrets");
     } catch (err) {
-      res.status(500).send("server creation error: ", err);
+      if (err.code === 11000) {
+        return res.status(400).send("Email already registered");
+      }
+      res.status(500).send("Registration error");
     }
   });
 
@@ -81,23 +83,20 @@ app
 
   .post(async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { email, password } = req.body;
 
-      //  login authentication
-      //   if the stored email matches the written email ,it checks if the password is the same as the stored password
-      const foundUser = await User.findOne({ email: username });
+    //checking for the user with the particular email and validating
+      const user = await User.findOne({ email: email });
+      if (!user) return res.status(401).send("invalid credentials");
 
-      // if (foundUser){
-      //   if (foundUser.password === password){
-      //       res.render("secrets")
-      //   }
-      // }
+      //using bcrypt to validate if the hashed passwords are the same
+      const isValid = await bcrypt.compare(password , user.password);
+      if (!isValid) return res.status(401).send("invalid credentials");
 
-      foundUser && foundUser.password === password
-        ? res.render("secrets")
-        : res.status(401).send("Details entered are wrong, try again");
+      res.render("secrets");
+
     } catch (err) {
-      res.status(500).send("login server error : ", err);
+      res.status(500).send("login server error");
     }
   });
 
