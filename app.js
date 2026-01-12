@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const port = process.env.PORT || 3000;
 require("dotenv").config();
-
+const encrypt = require("mongoose-encryption");
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -32,6 +32,9 @@ const userSchema = mongoose.Schema(
   }
 );
 
+// Mongoose encryption
+const secret = process.env.SOMETHING_YOU_WONT_GUESS_HEHE;
+userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] }); //using the encrypted field you can specify a field to encrypt
 
 const User = mongoose.model("User", userSchema);
 
