@@ -115,7 +115,7 @@ app
         return res.redirect("/login")
       }
 
-      passport.authenticate(req, res , () =>{
+      passport.authenticate("local")(req, res , () =>{
         res.redirect("/secrete") // if users has been logged in and authenticated the secrets page gets rendered 
       })
      })
