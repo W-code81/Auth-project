@@ -109,7 +109,17 @@ app
       password: password
      });
 
-      // res.render("secrets");
+     req.login(user , (err) =>{
+      if (err){
+        console.error("login error: " , err);
+        return res.redirect("/login")
+      }
+
+      passport.authenticate(req, res , () =>{
+        res.redirect("/secrete") // if users has been logged in and authenticated the secrets page gets rendered 
+      })
+     })
+
     } catch (err) {
       res.status(500).send("login server error");
     }
