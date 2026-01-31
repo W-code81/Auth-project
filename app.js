@@ -7,7 +7,6 @@ const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose").default;
 
-
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
@@ -17,7 +16,7 @@ app.use(
     secret: process.env.SESSION_SECRET,
     resave: false, // doesn't save unchanged sessions
     saveUninitialized: false, // doesn't create if empty
-  })
+  }),
 );
 
 app.use(passport.initialize()); //initializes passport
@@ -46,7 +45,7 @@ const userSchema = mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 userSchema.plugin(passportLocalMongoose, { usernameField: "email" }); // enabled to hash and salt paasswords and save users into the db. also uses email as username
@@ -55,7 +54,7 @@ const User = mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy()); //passport local strategy - auth user using their username and password
 passport.serializeUser(User.serializeUser()); //creates a cookie and stores users info
-passport.deserializeUser(User.deserializeUser()); //removes cookie and retrieves users info 
+passport.deserializeUser(User.deserializeUser()); //removes cookie and retrieves users info
 
 app.get("/", (req, res) => {
   res.render("home");
@@ -71,12 +70,12 @@ app
     try {
       const { email, password } = req.body;
 
-      const newUser = await User.register({ email: email }, password); //registers user and hashes password
+      await User.register({ email: email }, password); //registers user and hashes password
 
-      passport.authenticate("local")(req, res, () => { //authenticates user using local strategy if registration is successful and redirects to secrets page
+      passport.authenticate("local")(req, res, () => {
+        //authenticates user using local strategy if registration is successful and redirects to secrets page
         res.redirect("/secrets");
       });
-     
     } catch (err) {
       if (err.code === 11000) {
         return res.status(400).send("Email already registered");
@@ -85,7 +84,7 @@ app
     }
   });
 
-app.get("/secrets", (req, res) => { 
+app.get("/secrets", (req, res) => {
   if (req.isAuthenticated()) {
     res.render("secrets"); //renders secrets page if user is authenticated
   } else {
@@ -100,30 +99,13 @@ app
     res.render("login");
   })
 
-  .post(async (req, res) => {
-    try {
-      const { email, password } = req.body;
-
-     const user = await User.create({
-      email: email,
-      password: password
-     });
-
-     req.login(user , (err) =>{
-      if (err){
-        console.error("login error: " , err);
-        return res.redirect("/login")
-      }
-
-      passport.authenticate("local")(req, res , () =>{
-        res.redirect("/secrete") // if users has been logged in and authenticated the secrets page gets rendered 
-      })
-     })
-
-    } catch (err) {
-      res.status(500).send("login server error");
-    }
-  });
+  .post(
+    passport.authenticate("local", {
+      //handles everything
+      successRedirect: "/secrets",
+      failureRedirect: "/login",
+    }),
+  );
 
 app
   .route("/submit")
@@ -135,14 +117,14 @@ app
     const secret = req.body;
   });
 
-app.get("/logout", (req, res , next) => {
-  req.logOut( (err) =>{
-    if(err){
-      console.error("logout error: " , err);
+app.get("/logout", (req, res, next) => {
+  req.logout((err) => {
+    if (err) {
+      console.error("logout error: ", err);
       return next(err); //moves to the next middleware
     }
     res.redirect("/");
-  })
+  });
 });
 
 app.listen(port, () => console.log(`secret app is live at port ${port}`));
