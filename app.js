@@ -135,6 +135,14 @@ app
     const secret = req.body;
   });
 
-app.get("/logout", (req, res) => {});
+app.get("/logout", (req, res , next) => {
+  req.logOut( (err) =>{
+    if(err){
+      console.error("logout error: " , err);
+      return next(err); //moves to the next middleware
+    }
+    res.redirect("/");
+  })
+});
 
 app.listen(port, () => console.log(`secret app is live at port ${port}`));
