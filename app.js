@@ -5,7 +5,8 @@ require("dotenv").config();
 const validator = require("validator");
 const session = require("express-session");
 const passport = require("passport");
-const passportLocalMongoose = require("passport-local-mongoose").default;
+const passportLocalMongoose = require("passport-local-mongoose").default; //for local auth
+const GoogleStrategy = require("passport-google-oauth20").Strategy; //for google auth
 
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -42,6 +43,12 @@ const userSchema = mongoose.Schema(
         message: "Please enter a valid email",
       },
     },
+    googleId: {
+      //for google auth
+      type: String,
+      unique: true,
+      sparse: true, //allows multiple null values for googleId since not all users will have it (only google auth users)
+    },
   },
   {
     timestamps: true,
@@ -56,9 +63,49 @@ passport.use(User.createStrategy()); //passport local strategy - auth user using
 passport.serializeUser(User.serializeUser()); //creates a cookie and stores users info
 passport.deserializeUser(User.deserializeUser()); //removes cookie and retrieves users info
 
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "http://localhost:3000/auth/google/secrets",
+      userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo", //to get user info from google profile
+    },
+    async (accessToken, refreshToken, profile, done) => {
+      try {
+        const user = await User.findOneAndUpdate(
+          { googleId: profile.id }, //finds user with googleId if exists
+          {
+            googleId: profile.id, //stores googleId from google profile
+            email: profile.emails[0].value, //stores email from google profile
+          },
+          { upsert: true, new: true }, //creates new user if not found and returns the updated document
+        );
+
+        return done(null, user); //successful authentication, returns user info to serializeUser
+      } catch (err) {
+        return done(err, null); //error during authentication, returns error to serializeUser
+      }
+    },
+  ),
+);
+
 app.get("/", (req, res) => {
   res.render("home");
 });
+
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile", "email"] }), //initiates google auth and requests access to user's profile and email
+);
+
+app.get(
+  "/auth/google/secrets",
+  passport.authenticate("google", {
+    successRedirect: "/secrets", //redirects to secrets page if authentication is successful
+    failureRedirect: "/login", //redirects to login page if authentication fails
+  }),
+);
 
 app
   .route("/register")
