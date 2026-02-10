@@ -1,4 +1,19 @@
 
+<% if (!cookieConsent) { %>
+<div id="cookie-banner">
+  This site uses cookies to improve your experience.
+  <button onclick="acceptCookies()">Accept</button>
+</div>
+
+<script>
+function acceptCookies(){
+  fetch("/accept-cookies", { method: "POST" })
+    .then(()=> {
+      document.getElementById("cookie-banner").style.display="none";
+    });
+}
+</script>
+<% } %>
 
 </body>
 </html>
