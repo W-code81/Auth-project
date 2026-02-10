@@ -1,4 +1,3 @@
-
 body {
   background-color: #E8ECEF;
 }
@@ -26,4 +25,30 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.flash {
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 6px;
+}
+
+.error {
+  background: #ffd6d6;
+  color: #900;
+}
+
+.success {
+  background: #d6ffd9;
+  color: #060;
+}
+
+.alert {
+  animation: slideOut 4s ease-in-out forwards;
+}
+
+@keyframes slideOut {
+  0% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
 }
