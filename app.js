@@ -7,6 +7,8 @@ const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose").default; //for local auth
 const GoogleStrategy = require("passport-google-oauth20").Strategy; //for google auth
+const cookieParser = require("cookie-parser");
+
 
 
 app.set("view engine", "ejs");
@@ -26,9 +28,14 @@ app.use(
 
 app.use(passport.initialize()); //initializes passport
 app.use(passport.session()); //manages persistent login sessions
+app.use(cookieParser());
+
+app.use((req,res,next) =>{
+  res.locals.cookieConsent = req.cookies.cookieConsent; //global variable to check if user has given cookie consent, accessible in all views
+  next();
+})
 
 const mongoose = require("mongoose");
-
 
 mongoose
   .connect(process.env.MONGODB_LOCAL_URI)
@@ -111,6 +118,14 @@ app.get(
     failureRedirect: "/login", //redirects to login page if authentication fails
   }),
 );
+
+app.post("/accept-cookies", (req, res) =>{
+  res.cookie("cookieConsent", "true",{
+    httpOnly: false, //allows client side js to access the cookie since we need to check cookie consent in the frontend
+    maxAge: 1000 * 60 * 60 * 24 * 365, //cookie expires after 1 year
+  });
+  res.sendStatus(200);
+});
 
 app
   .route("/register")
