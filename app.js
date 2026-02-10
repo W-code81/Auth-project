@@ -8,6 +8,7 @@ const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose").default; //for local auth
 const GoogleStrategy = require("passport-google-oauth20").Strategy; //for google auth
 const cookieParser = require("cookie-parser");
+const flash = require("connect-flash"); //for flash messages
 
 
 
@@ -28,12 +29,19 @@ app.use(
 
 app.use(passport.initialize()); //initializes passport
 app.use(passport.session()); //manages persistent login sessions
-app.use(cookieParser());
 
+app.use(cookieParser());
 app.use((req,res,next) =>{
   res.locals.cookieConsent = req.cookies.cookieConsent; //global variable to check if user has given cookie consent, accessible in all views
   next();
 })
+
+app.use(flash()); //for flash messages
+app.use((req, res, next) => {
+  res.locals.success = req.flash("success");
+  res.locals.error = req.flash("error");
+  next();
+});
 
 const mongoose = require("mongoose");
 
@@ -114,9 +122,12 @@ app.get(
 app.get(
   "/auth/google/secrets",
   passport.authenticate("google", {
-    successRedirect: "/secrets", //redirects to secrets page if authentication is successful
     failureRedirect: "/login", //redirects to login page if authentication fails
   }),
+  (req, res) => {
+    req.flash("success", "Login successful!"); //sets success flash message
+    res.redirect("/secrets"); //redirects to secrets page if authentication is successful
+  },
 );
 
 app.post("/accept-cookies", (req, res) =>{
@@ -139,24 +150,28 @@ app
 
       await User.register({ email: email }, password); //registers user and hashes password
 
-      passport.authenticate("local")(req, res, () => {
-        //authenticates user using local strategy if registration is successful and redirects to secrets page
+      passport.authenticate("local")(req, res, () => { //authenticates user using local strategy if registration is successful and redirects to secrets page
+        req.flash("success", "Registration successful!"); //sets success flash message
         res.redirect("/secrets");
       });
     } catch (err) {
       if (err.code === 11000) {
-        return res.status(400).send("Email already registered");
+        req.flash("error", "Email already registered");
+        return res.redirect("/register");
       }
-      res.status(500).send("Registration error");
+      req.flash("error", "Registration error");
+      return res.redirect("/register");
     }
   });
 
 app.get("/secrets", (req, res) => {
   if (req.isAuthenticated()) {
-    res.render("secrets"); //renders secrets page if user is authenticated
-  } else {
-    res.redirect("/login");
-  }
+    return res.render("secrets") //renders secrets page if user is authenticated
+  } 
+
+  req.flash("error", "Please log in to view secrets"); //sets error flash message if user is not authenticated
+  res.redirect("/login");
+  
 });
 
 app
@@ -168,21 +183,24 @@ app
 
   .post(
     passport.authenticate("local", {
-      //handles everything
-      successRedirect: "/secrets",
+      //handles everything related to authentication - checks if user exists, compares password, etc
       failureRedirect: "/login",
+      failureFlash: true, //enables flash messages on authentication failure
     }),
+    (req, res) => {
+      req.flash("success", "Login successful!"); //sets success flash message
+      res.redirect("/secrets");
+    }
   );
 
 app
   .route("/submit")
   .get((req, res) => {
     if(req.isAuthenticated()){
-      res.render("submit");
+      return res.render("submit");
     }
-    else{
+      req.flash("error", "Please log in to submit secrets");
       res.redirect("/login");
-    }  
   })
 
   .post((req, res) => {
@@ -195,6 +213,7 @@ app.get("/logout", (req, res, next) => {
       console.error("logout error: ", err);
       return next(err); //moves to the next middleware
     }
+    req.flash("success", "Logged out successfully!"); //sets success flash message
     res.redirect("/");
   });
 });
