@@ -8,15 +8,19 @@ const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose").default; //for local auth
 const GoogleStrategy = require("passport-google-oauth20").Strategy; //for google auth
 
+
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false, // doesn't save unchanged sessions
     saveUninitialized: false, // doesn't create if empty
+    cookie:{
+      httpOnly: true, //prevents client side js from accessing the cookie
+      maxAge: 1000 * 60 * 60 * 24, //cookie expires after 1 day
+    }
   }),
 );
 
@@ -24,6 +28,7 @@ app.use(passport.initialize()); //initializes passport
 app.use(passport.session()); //manages persistent login sessions
 
 const mongoose = require("mongoose");
+
 
 mongoose
   .connect(process.env.MONGODB_LOCAL_URI)
@@ -157,7 +162,12 @@ app
 app
   .route("/submit")
   .get((req, res) => {
-    res.render("submit");
+    if(req.isAuthenticated()){
+      res.render("submit");
+    }
+    else{
+      res.redirect("/login");
+    }  
   })
 
   .post((req, res) => {
